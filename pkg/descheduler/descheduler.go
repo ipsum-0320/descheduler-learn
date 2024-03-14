@@ -190,6 +190,7 @@ func (d *descheduler) runProfiles(ctx context.Context, client clientset.Interfac
 			frameworkprofile.WithPodEvictor(podEvictor),
 			frameworkprofile.WithGetPodsAssignedToNodeFnc(d.getPodsAssignedToNode),
 		)
+		// currProfile 是一个 Profile 对象，里面包含了所有的插件。
 		if err != nil {
 			klog.ErrorS(err, "unable to create a profile", "profile", profile.Name)
 			continue
@@ -197,9 +198,12 @@ func (d *descheduler) runProfiles(ctx context.Context, client clientset.Interfac
 		profileRunners = append(profileRunners, profileRunner{profile.Name, currProfile.RunDeschedulePlugins, currProfile.RunBalancePlugins})
 	}
 
+	// 遍历所有的 Profile，执行其中的 Deschedule 插件。
+	// Deschedule 插件是用来执行一些预处理操作，比如将一些 Pod 从节点上移除。
 	for _, profileR := range profileRunners {
 		// First deschedule
 		status := profileR.descheduleEPs(ctx, nodes)
+		// descheduleEPs 是 eprunner（它是一个函数签名的别名，这个插件的 Deschdule 函数签名需要与其保持一致）类型的。
 		if status != nil && status.Err != nil {
 			span.AddEvent("failed to perform deschedule operations", trace.WithAttributes(attribute.String("err", status.Err.Error()), attribute.String("profile", profileR.name), attribute.String("operation", tracing.DescheduleOperation)))
 			klog.ErrorS(status.Err, "running deschedule extension point failed with error", "profile", profileR.name)
